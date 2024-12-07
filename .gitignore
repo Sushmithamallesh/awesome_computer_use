@@ -1,0 +1,11 @@
+#gitignore for python and streamlit
+
+.DS_Store
+.venv/
+.env
+
+__pycache__/
+*.py[cod]
+*$py.class
+
+streamlit_output.log
