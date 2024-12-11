@@ -95,7 +95,7 @@ with st.container():
         }
         st.session_state.messages.append(user_message)
                 
-                # Get Claude's response
+        # Get Claude's response
         response = st.session_state.claude_manager.get_response(
             conversation_history=st.session_state.messages
         )

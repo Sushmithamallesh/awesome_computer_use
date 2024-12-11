@@ -8,10 +8,10 @@
 
 
 Checklist:
-- [] Message to be sent properly
-- [] Proper helicone integration
-- [] Tools to be defined
-- [] Get a single response from Claude
+- [x] Message to be sent properly
+- [x] Proper helicone integration
+- [x] Get a single response from Claude
+- [] Define basic computer tools now
 - [] Check the body you are sending to Claude
 - [] Check the response you are getting from Claude
 - [] All sort of optimisation look at the example directory look at everything
