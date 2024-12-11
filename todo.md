@@ -4,13 +4,11 @@
 - I just want to send the last one screenshot to claude each time
 
 
-
-
-
 Checklist:
 - [x] Message to be sent properly
 - [x] Proper helicone integration
 - [x] Get a single response from Claude
+- [] Screenshot handling
 - [] Define basic computer tools now
 - [] Check the body you are sending to Claude
 - [] Check the response you are getting from Claude
@@ -30,3 +28,16 @@ UI Message (lightweight)
   → Response
   → Convert back to UI Message (lightweight)
 
+Potentially Missing/To Consider:
+Error Handling
+  Tool execution errors
+  Claude API errors
+  Browser crashes
+State Management
+  Browser session persistence
+  Tool state cleanup
+  Message history management
+Tool Response Processing
+  Screenshot handling
+  Large output handling
+  Tool result formatting
