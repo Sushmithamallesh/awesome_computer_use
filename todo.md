@@ -1,6 +1,4 @@
 # TODO
-- The problem I am facing is abput types I think. How to gracefully handle this?
-- Add a stop button to the Streamlit app
 
 
 Checklist:
@@ -11,7 +9,7 @@ Checklist:
 - [] Define basic computer tools now
 - [] Check the body you are sending to Claude
 - [] Check the response you are getting from Claude
-- [] All sort of optimisation look at the example directory look at everything
+- [] All sort of optimisation look at the example directory look at everything: example caching optimisation
 - [] What the heck is this?     """
     Set cache breakpoints for the 3 most recent turns
     one cache breakpoint is left for tools/system prompt, to be shared across sessions
