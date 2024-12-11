@@ -27,6 +27,7 @@ class ChatLoop:
             'extraction': ExtractionTool(),
             'javascript': JavaScriptTool()
         }
+        self.only_n_most_recent_images = 1 #keep default to 1
         
         # Start browser session
         self._initialize_browser()
@@ -68,7 +69,7 @@ class ChatLoop:
             try:
                 # Get response from Claude
                 try:
-                    response = self.claude_manager.call_claude(messages, max_retries)
+                    response = self.claude_manager.call_claude(conversation_history=messages, only_n_most_recent_images=self.only_n_most_recent_images)
                 except Exception as e:
                     logging.error(f"Claude API call failed: {str(e)}")
                     raise Exception(f"Failed to get response from Claude after {max_retries} retries: {str(e)}")

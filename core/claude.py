@@ -11,7 +11,7 @@ from anthropic.types.beta import (
 )
 from enum import StrEnum
 import time
-
+from typing import List
 
 
 # This system prompt is optimized for the Docker environment in this repository and
@@ -49,16 +49,64 @@ class ClaudeManager:
                                 default_headers={"Helicone-Auth": f"Bearer {os.environ.get('HELICONE_API_KEY')}"})
 
         self.system_prompt = SYSTEM_PROMPT
+        self.only_n_most_recent_images = 3  # default value
+        self.min_removal_threshold = 2  # default chunk size for removal
+
+    def filter_recent_images(self, messages: List[dict], images_to_keep: int = None) -> List[dict]:
+        """
+        Filter messages to keep only N most recent images in tool results.
+        """
+        if images_to_keep is None:
+            return messages
+
+        # Find all tool result blocks that contain images
+        tool_result_blocks = [
+            item
+            for message in messages
+            for item in (message["content"] if isinstance(message["content"], list) else [])
+            if isinstance(item, dict) and item.get("type") == "tool_result"
+        ]
+
+        # Count total images
+        total_images = sum(
+            1
+            for tool_result in tool_result_blocks
+            for content in tool_result.get("content", [])
+            if isinstance(content, dict) and content.get("type") == "image"
+        )
+
+        # Calculate images to remove
+        images_to_remove = total_images - images_to_keep
+        # Remove in chunks for better cache behavior
+        images_to_remove -= images_to_remove % self.min_removal_threshold
+
+        if images_to_remove <= 0:
+            return messages
+
+        # Filter images from tool results
+        for tool_result in tool_result_blocks:
+            if isinstance(tool_result.get("content"), list):
+                new_content = []
+                for content in tool_result.get("content", []):
+                    if isinstance(content, dict) and content.get("type") == "image":
+                        if images_to_remove > 0:
+                            images_to_remove -= 1
+                            continue
+                    new_content.append(content)
+                tool_result["content"] = new_content
+
+        return messages
     
-    def call_claude(self, conversation_history: list = None, max_retries: int = 3) -> Dict[str, Any]:
+    def call_claude(self, conversation_history: list = None, max_retries: int = 3, only_n_most_recent_images: int = None) -> Dict[str, Any]:
         retry_count = 0
+        filtered_conversation_history = self.filter_recent_images(conversation_history.copy(), only_n_most_recent_images)
         while retry_count < max_retries:
             try:
                 response = self.client.messages.create(
                     model="claude-3-opus-20240229",
                     max_tokens=4096,
                     system=self.system_prompt,
-                    messages=conversation_history if conversation_history else []
+                    messages=filtered_conversation_history
                 )
                 return response
             except Exception as e:

@@ -1,14 +1,13 @@
 # TODO
 - The problem I am facing is abput types I think. How to gracefully handle this?
 - Add a stop button to the Streamlit app
-- I just want to send the last one screenshot to claude each time
 
 
 Checklist:
 - [x] Message to be sent properly
 - [x] Proper helicone integration
 - [x] Get a single response from Claude
-- [] Screenshot handling
+- [x] Screenshot handling
 - [] Define basic computer tools now
 - [] Check the body you are sending to Claude
 - [] Check the response you are getting from Claude

@@ -54,6 +54,24 @@ if 'tools' not in st.session_state:
 if 'chat_loop' not in st.session_state:
     st.session_state.chat_loop = ChatLoop()
 
+# Initialize session states
+if 'only_n_most_recent_images' not in st.session_state:
+    st.session_state.only_n_most_recent_images = 1
+
+# Add a sidebar configuration
+with st.sidebar:
+    st.number_input(
+        "Keep N most recent images",
+        min_value=1,
+        max_value=10,
+        value=st.session_state.only_n_most_recent_images,
+        key="only_n_most_recent_images",
+        help="To reduce tokens, only keep this many recent images in the conversation"
+    )
+    
+    # Update chat loop with new value
+    st.session_state.chat_loop.only_n_most_recent_images = st.session_state.only_n_most_recent_images
+    
 # Display chat history
 for message in st.session_state.messages:
     render_message(message)
