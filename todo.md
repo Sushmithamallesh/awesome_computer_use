@@ -1,6 +1,7 @@
 # TODO
+- The problem I am facing is abput types I think. How to gracefully handle this?
 - Add a stop button to the Streamlit app
-- I just want to send the one screenshot to claude. What nonsense is this sendind a bunch of them lol.Test if I am wrong
+- I just want to send the last one screenshot to claude each time
 
 
 

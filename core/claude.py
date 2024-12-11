@@ -5,16 +5,17 @@ from datetime import datetime
 from utils.utils import take_screenshot
 from anthropic.types.beta import (
     BetaContentBlockParam,
-    BetaImageBlockParam,
-    BetaMessage,
-    BetaMessageParam,
-    BetaTextBlock,
     BetaTextBlockParam,
-    BetaToolResultBlockParam,
     BetaToolUseBlockParam,
+    BetaToolResultBlockParam,
 )
+from enum import StrEnum
 import time
 
+class Sender(StrEnum):
+    USER = "user"
+    BOT = "assistant"
+    TOOL = "tool"
 
 # This system prompt is optimized for the Docker environment in this repository and
 # specific tool combinations enabled.
@@ -52,29 +53,24 @@ class ClaudeManager:
 
         self.system_prompt = SYSTEM_PROMPT
         
-    def get_response(self, message: str, conversation_history: list = None, max_retries: int = 3) -> Dict[str, Any]:
+    def get_response(self, conversation_history: list = None, max_retries: int = 3) -> Dict[str, Any]:
         """Get response from Claude with message"""
         retry_count = 0
         backoff_time = 1
                     
-            # Add to Claude history
-            claude_user_message = Message(role="user", content=user_input)
-            st.session_state.claude_history.append(claude_user_message)
-            
         while retry_count < max_retries:
             try:
-                print(f"Sending message to Claude: {message}")
-                print(f"Conversation history: {conversation_history}")
+                messages = conversation_history if conversation_history else []
                 response = self.client.messages.create(
                     model="claude-3-opus-20240229",
                     max_tokens=4096,
                     system=self.system_prompt,
-                    messages=conversation_history if conversation_history else [{
-                        "role": "user",
-                        "content": message
-                    }]
+                    messages=messages
                 )
-                return response
+                return {
+                    "role": Sender.BOT,
+                    "content": response.content
+                }
                 
             except Exception as e:
                 retry_count += 1
@@ -84,7 +80,3 @@ class ClaudeManager:
                 # Exponential backoff: 1s, 2s, 4s, etc.
                 time.sleep(backoff_time)
                 backoff_time *= 2
-
-
-        
-    def loop(self, message: str, conversation_hist

@@ -4,8 +4,8 @@ from core.claude import ClaudeManager
 from anthropic.types import Message, MessageParam, ContentBlock, TextBlockParam, ImageBlockParam, ToolUseBlockParam, ToolResultBlockParam, Usage
 import os
 from dotenv import load_dotenv
-from core.models import UIMessage 
-
+from core.claude import Sender
+from core.claude import BetaTextBlockParam, BetaToolUseBlockParam, BetaToolResultBlockParam
 # Load environment variables
 load_dotenv()
 
@@ -18,8 +18,11 @@ st.set_page_config(
 )
 
 # Initialize session states
-if 'ui_messages' not in st.session_state:
-    st.session_state.ui_messages: list[UIMessage] = []
+if 'messages' not in st.session_state:
+    st.session_state.messages = []
+
+if 'tools' not in st.session_state:
+    st.session_state.tools = {}
 
 if 'claude_history' not in st.session_state:
     st.session_state.claude_history: list[Message] = []
@@ -60,21 +63,21 @@ st.title("Awesome Computer Assistant")
 # Display chat messages
 chat_container = st.container()
 with chat_container:
-    for message in st.session_state.ui_messages:
-        if message.role == "user":
+    for message in st.session_state.messages:
+        if message.get("role") == "user":
             st.markdown(f"""
                 <div class="user-message">
-                    {message.content}
+                    {message.get("content")}
                 </div>
             """, unsafe_allow_html=True)
         else:
             st.markdown(f"""
                 <div class="assistant-message">
-                    {message.content}
+                    {message.get("content")}
                 </div>
             """, unsafe_allow_html=True)
-            if message.screenshot:
-                st.image(message.screenshot)
+            if message.get("screenshot"):
+                st.image(message.get("screenshot"))
 
 # Input area
 with st.container():
@@ -82,35 +85,67 @@ with st.container():
         user_input = st.text_input("Type your message:", key="user_input")
         submit_button = st.form_submit_button("Send")
 
-        if submit_button and user_input:
-            # Add to UI messages
-            user_ui_message = UIMessage(role="user", content=user_input)
-            st.session_state.ui_messages.append(user_ui_message)
-            
-            # Get Claude's analysis and instructions
-            claude_response = st.session_state.claude_manager.get_response(
-                message=user_input,
-                conversation_history=st.session_state.claude_history,
-            )
-
-            # Execute tool based on Claude's instructions
-            tool_response = st.session_state.chat_loop.process_message(claude_response)
-            
-            # Create response messages
-            response_content = f"{claude_response['message']}\n\nAction result: {tool_response['message']}"
-            
-            # Add to UI messages
-            assistant_ui_message = UIMessage(
-                role="assistant",
-                content=response_content
-            )
-            st.session_state.ui_messages.append(assistant_ui_message)
-            
-            # Add to Claude history
-            claude_assistant_message = Message(
-                role="assistant",
-                content=response_content
-            )
-            st.session_state.claude_history.append(claude_assistant_message)
-            
-            st.rerun() 
+    if submit_button and user_input:
+        # Add user message
+        user_message = {
+            "role": Sender.USER,
+            "content": [
+                BetaTextBlockParam(type="text", text=user_input)
+            ]
+        }
+        st.session_state.messages.append(user_message)
+                
+                # Get Claude's response
+        response = st.session_state.claude_manager.get_response(
+            conversation_history=st.session_state.messages
+        )
+    
+        # Convert Claude's response to our message format
+        claude_message = {
+            "role": Sender.BOT,
+            "content": []
+        }
+        
+        # Process the response content
+        for content in response.get("content", []):
+            if content.type == "text":
+                claude_message["content"].append({
+                    "type": "text",
+                    "text": content.text
+                })
+            elif content.type == "tool_use":
+                tool_result = st.session_state.chat_loop.process_tool_calls(content)
+                # Store tool result
+                st.session_state.tools[content.id] = tool_result
+                # Add tool use block
+                claude_message["content"].append({
+                    "type": "tool_use",
+                    "id": content.id,
+                    "name": content.name,
+                    "input": content.input
+                })
+                # Add tool result block
+                claude_message["content"].append({
+                    "type": "tool_result",
+                    "tool_use_id": content.id,
+                    "content": tool_result.output if tool_result.output else tool_result.error,
+                    "is_error": bool(tool_result.error)
+                })
+        
+        st.session_state.messages.append(claude_message)
+        st.rerun()
+        
+        # Update message rendering
+        for message in st.session_state.messages:
+            if isinstance(message.get("content"), list):
+                for block in message.get("content", []):
+                    if block.get("type") == "text":
+                        st.markdown(f"""
+                            <div class="{message.get('role')}-message">
+                                {block.get('text')}
+                            </div>
+                        """, unsafe_allow_html=True)
+                    elif block.get("type") == "tool_result":
+                        tool_result = st.session_state.tools.get(block.get("tool_use_id"))
+                        if tool_result and tool_result.screenshot:
+                            st.image(tool_result.screenshot)
