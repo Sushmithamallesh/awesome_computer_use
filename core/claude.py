@@ -12,10 +12,7 @@ from anthropic.types.beta import (
 from enum import StrEnum
 import time
 
-class Sender(StrEnum):
-    USER = "user"
-    BOT = "assistant"
-    TOOL = "tool"
+
 
 # This system prompt is optimized for the Docker environment in this repository and
 # specific tool combinations enabled.
@@ -52,31 +49,20 @@ class ClaudeManager:
                                 default_headers={"Helicone-Auth": f"Bearer {os.environ.get('HELICONE_API_KEY')}"})
 
         self.system_prompt = SYSTEM_PROMPT
-        
-    def get_response(self, conversation_history: list = None, max_retries: int = 3) -> Dict[str, Any]:
-        """Get response from Claude with message"""
+    
+    def call_claude(self, conversation_history: list = None, max_retries: int = 3) -> Dict[str, Any]:
         retry_count = 0
-        backoff_time = 1
-                    
         while retry_count < max_retries:
             try:
-                messages = conversation_history if conversation_history else []
                 response = self.client.messages.create(
                     model="claude-3-opus-20240229",
                     max_tokens=4096,
                     system=self.system_prompt,
-                    messages=messages
+                    messages=conversation_history if conversation_history else []
                 )
-                return {
-                    "role": Sender.BOT,
-                    "content": response.content
-                }
-                
+                return response
             except Exception as e:
                 retry_count += 1
                 if retry_count == max_retries:
-                    raise Exception(f"Failed to get response after {max_retries} attempts. Error: {str(e)}")
-                
-                # Exponential backoff: 1s, 2s, 4s, etc.
-                time.sleep(backoff_time)
-                backoff_time *= 2
+                    raise Exception(f"Failed to get response from Claude after {max_retries} retries. Error: {str(e)}")
+                time.sleep(2 ** retry_count)  # Exponential backoff
