@@ -41,7 +41,7 @@ class ChatLoop:
                 args=['--start-maximized']
             )
             self.context = self.browser.new_context(
-                viewport={'width': 1920, 'height': 1080}
+                no_viewport=True
             )
             self.page = self.context.new_page()
             logging.info("Browser initialized successfully")

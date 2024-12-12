@@ -44,6 +44,8 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
+
+
 # Initialize session states
 if 'messages' not in st.session_state:
     st.session_state.messages = []
