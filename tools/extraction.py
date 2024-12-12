@@ -1,18 +1,11 @@
-from . import BaseTool
+from .base import BaseAnthropicTool
 from typing import Dict, Any
 from playwright.sync_api import Page
+from anthropic.types.beta import BetaToolUnionParam
 
-class ExtractionTool(BaseTool):
-    def execute(self, page: Page, command: str) -> Dict[str, Any]:
-        """Handle data extraction"""
-        try:
-            # Basic implementation for now
-            return {
-                "message": f"Extraction command: {command}",
-                "status": "success"
-            }
-        except Exception as e:
-            return {
-                "message": f"Error: {str(e)}",
-                "status": "error"
-            }
+class ExtractionTool(BaseAnthropicTool):
+    def __call__(self, page: Page, command: str) -> Dict[str, Any]:
+        pass
+
+    def to_params(self) -> BetaToolUnionParam:
+        return {"name": self.name, "type": self.api_type, **self.options}
