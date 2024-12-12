@@ -49,9 +49,6 @@ class ToolResult:
         """Returns a new ToolResult with the given fields replaced."""
         return replace(self, **kwargs)
 
-class CLIResult(ToolResult):
-    """A ToolResult that can be rendered as a CLI output."""
-
 
 class ToolFailure(ToolResult):
     """A ToolResult that represents a failure."""
