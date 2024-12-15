@@ -8,16 +8,6 @@ from core.sender import Sender
 # Load environment variables
 load_dotenv()
 
-def process_tool_output(tool_output, tool_id: str):
-    """Handle tool output by storing it and preparing response block"""
-    st.session_state.tools[tool_id] = tool_output
-    return {
-        "type": "tool_result",
-        "tool_use_id": tool_id,
-        "content": tool_output.output if tool_output.output else tool_output.error,
-        "is_error": bool(tool_output.error)
-    }
-
 def render_message(message):
     """Callback function to render messages and tool outputs"""
     with st.chat_message(message["role"]):
@@ -43,8 +33,6 @@ st.set_page_config(
     layout="wide",
     initial_sidebar_state="collapsed"
 )
-
-
 
 # Initialize session states
 if 'messages' not in st.session_state:

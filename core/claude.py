@@ -12,7 +12,8 @@ from anthropic.types.beta import (
 from enum import StrEnum
 import time
 from typing import List
-
+from tools.collection import ToolCollection
+COMPUTER_USE_BETA_FLAG = "computer-use-2024-10-22"
 
 # This system prompt is optimized for the Docker environment in this repository and
 # specific tool combinations enabled.
@@ -97,18 +98,29 @@ class ClaudeManager:
 
         return messages
     
-    def call_claude(self, conversation_history: list = None, max_retries: int = 3, only_n_most_recent_images: int = None) -> Dict[str, Any]:
+    def call_claude(self, conversation_history: list = None, max_retries: int = 1, only_n_most_recent_images: int = None, tool_collection: ToolCollection = None) -> Dict[str, Any]:
         retry_count = 0
+        betas = [COMPUTER_USE_BETA_FLAG]
         filtered_conversation_history = self.filter_recent_images(conversation_history.copy(), only_n_most_recent_images)
         while retry_count < max_retries:
             try:
-                response = self.client.messages.create(
-                    model="claude-3-opus-20240229",
+                raw_response = self.client.beta.messages.with_raw_response.create(
+                    model="claude-3-5-sonnet-20241022",
                     max_tokens=4096,
                     system=self.system_prompt,
-                    messages=filtered_conversation_history
+                    messages=filtered_conversation_history, 
+                    betas=betas,
+                    tools=tool_collection.to_params(),
                 )
+                response = raw_response.parse()
                 return response
+                
+            except (APIStatusError, APIResponseValidationError) as e:
+                raise e
+                
+            except APIError as e:
+                return e
+                
             except Exception as e:
                 retry_count += 1
                 if retry_count == max_retries:

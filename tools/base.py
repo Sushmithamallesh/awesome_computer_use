@@ -1,33 +1,37 @@
-from abc import ABC, abstractmethod
-from typing import Dict, Any
-from dataclasses import dataclass, field, replace
-from anthropic import Anthropic
+from abc import ABCMeta, abstractmethod
+from dataclasses import dataclass, fields, replace
+from typing import Any
+
 from anthropic.types.beta import BetaToolUnionParam
 
-class BaseAnthropicTool(ABC):
-    """Abstract base class for anthropic defined tools"""
-    
+
+class BaseAnthropicTool(metaclass=ABCMeta):
+    """Abstract base class for Anthropic-defined tools."""
+
     @abstractmethod
     def __call__(self, **kwargs) -> Any:
-        """Execute the tool with the given arguments."""
+        """Executes the tool with the given arguments."""
         ...
-    
+
     @abstractmethod
     def to_params(
         self,
     ) -> BetaToolUnionParam:
         raise NotImplementedError
 
+
 @dataclass(kw_only=True, frozen=True)
 class ToolResult:
+    """Represents the result of a tool execution."""
+
     output: str | None = None
     error: str | None = None
-    screenshot: str | None = None
+    base64_image: str | None = None
     system: str | None = None
-    
-    def __bool__(self) -> bool:
+
+    def __bool__(self):
         return any(getattr(self, field.name) for field in fields(self))
-    
+
     def __add__(self, other: "ToolResult"):
         def combine_fields(
             field: str | None, other_field: str | None, concatenate: bool = True
@@ -44,10 +48,14 @@ class ToolResult:
             base64_image=combine_fields(self.base64_image, other.base64_image, False),
             system=combine_fields(self.system, other.system),
         )
-    
+
     def replace(self, **kwargs):
         """Returns a new ToolResult with the given fields replaced."""
         return replace(self, **kwargs)
+
+
+class CLIResult(ToolResult):
+    """A ToolResult that can be rendered as a CLI output."""
 
 
 class ToolFailure(ToolResult):
