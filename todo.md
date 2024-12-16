@@ -7,10 +7,12 @@ Checklist:
 - [x] Get a single response from Claude
 - [x] Screenshot handling
 - [x] Give the tool to claude. Check if its working first. Send a screenshot tool check on helicone
-- [] add a non computer tool
+- [x] add a non computer tool simple
+- [] Define all computer tools and fix tool processing use playwright 
+
 - [] Define basic computer tools now
 - [] Check how to set the pages width and height for the whole scaling coordinates thing
-- [] Check the body you are sending to Claude. Are you properly including the tool callls?
+- [] Check the body you are sending to Claude. Are you properly including the tool calls?
 - [] Check the response you are getting from Claude
 - [] All sort of optimisation look at the example directory look at everything: example caching optimisation
 - [] What the heck is this?     

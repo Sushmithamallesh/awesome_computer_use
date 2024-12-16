@@ -2,6 +2,6 @@ from enum import StrEnum
 
 class Sender(StrEnum):
     USER = "user"
-    BOT = "assistant"
+    ASSISSTANT = "assistant"
     TOOL = "tool"
     

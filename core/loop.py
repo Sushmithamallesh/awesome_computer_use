@@ -1,157 +1,208 @@
 import os
+import threading
 from playwright.sync_api import sync_playwright
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 import logging
+from queue import Queue
 from tools.computer import ComputerTool
 from core.claude import ClaudeManager
 from core.sender import Sender
 from tools.collection import ToolCollection
 from tools.browsertools import BrowserTool
+from core.manager import BrowserManager
+import streamlit as st
+
+@st.cache_resource
+def get_browser_manager():
+    return BrowserManager(headless=False)
 
 class ChatLoop:
     def __init__(self):
-        """Initialize the chat loop with browser and tools"""
-        self.browser = None
-        self.page = None
-        self.context = None
-        self.playwright = None
+        """Initialize the chat loop with tools and browser manager."""
         self.claude_manager = ClaudeManager()
-        # Initialize tools
-        self.only_n_most_recent_images = 1 #keep default to 1
+        self.only_n_most_recent_images = 1
         
-        # Start browser session
-        self._initialize_browser()
         
-        print("Browser initialized successfully")
-        print("page", self.page)
+        if not hasattr(st.session_state, 'browser_manager'):
+            print("Creating new browser manager")
+            st.session_state.browser_manager = BrowserManager()
         
-        # Initialize tools
+        
+        # Initialize browser manager first
+        self.browser_manager = st.session_state.browser_manager
+        
+        # Initialize tools with browser manager
         self.tool_collection = ToolCollection(
-            ComputerTool(),
-            BrowserTool()
+            ComputerTool(browser_manager=self.browser_manager),
         )
-
-    def _initialize_browser(self):
-        """Initialize the browser session"""
+    
+    def _handle_tool_execution(self, content, messages, render_callback) -> tuple[dict, bool]:
+        """Handle tool execution and create appropriate messages."""
+        tool_block = {
+            "type": "tool_use",
+            "id": content.id,
+            "name": content.name,
+            "input": content.input
+        }
+        
+        tool_result_message = {"role": Sender.USER, "content": []}
+        
         try:
-            self.playwright = sync_playwright().start()
-            self.browser = self.playwright.chromium.launch(
-                headless=False,  # Set to True if you don't want to see the browser
-                args=['--start-maximized']
+            tool_result = self.tool_collection.run(
+                name=content.name,
+                tool_input=content.input
             )
+            result_block = self.tool_collection.process_tool_output(
+                tool_result,
+                content.id
+            )
+            tool_result_message["content"].append(result_block)
+            return tool_result_message, True
             
-            self.context = self.browser.new_context(
-                no_viewport=True  
-            )
-            self.page = self.context.new_page()
         except Exception as e:
-            logging.error(f"Failed to initialize browser: {str(e)}")
-            raise
+            error_block = {
+                "type": "tool_result",
+                "tool_use_id": content.id,
+                "content": f"Tool execution failed: {str(e)}",
+                "is_error": True
+            }
+            tool_result_message["content"].append(error_block)
+            return tool_result_message, False
 
     def get_response(self, conversation_history: list = None, render_callback=None, max_retries: int = 1) -> list:
-        """Get response from Claude with message and handle tool interactions
-        
-        Args:
-            conversation_history: List of previous messages
-            render_callback: Optional callback to render messages
-            max_retries: Maximum number of retries for Claude API calls
-            
-        Returns:
-            List of messages including Claude's response and tool results
-            
-        Raises:
-            Exception: If Claude API calls fail or tool processing fails
-        """
+        """Get response from Claude and handle tool executions."""
         messages = conversation_history if conversation_history else []
         
         while True:
             try:
                 # Get response from Claude
-                try:
-                    response = self.claude_manager.call_claude(
-                        conversation_history=messages, 
-                        only_n_most_recent_images=self.only_n_most_recent_images, 
-                        tool_collection=self.tool_collection
-                    )
-                except Exception as e:
-                    logging.error(f"Claude API call failed: {str(e)}")
-                    raise Exception(f"Failed to get response from Claude after {max_retries} retries: {str(e)}")
+                response = self.claude_manager.call_claude(
+                    conversation_history=messages,
+                    only_n_most_recent_images=self.only_n_most_recent_images,
+                    tool_collection=self.tool_collection
+                )
                 
-                claude_message = {
-                    "role": Sender.BOT,
-                    "content": []
-                }
+                claude_message = {"role": Sender.ASSISSTANT, "content": []}
+                tool_result_message = None
+                continue_loop = False
                 
-                tool_results = []
-                # Process each content block from Claude
+                # Process each content block from Claude's response
                 for content in response.content:
-                    try:
-                        if content.type == "text":
-                            claude_message["content"].append({
-                                "type": "text",
-                                "text": content.text
-                            })
-                        elif content.type == "tool_use":
-                            # Add tool use block
-                            tool_block = {
-                                "type": "tool_use",
-                                "id": content.id,
-                                "name": content.name,
-                                "input": content.input
-                            }
-                            claude_message["content"].append(tool_block)
-                            
-                            # Process tool with error handling
-                            try:
-                                tool_result = self.process_tool_calls(content)
-                                result_block = self.process_tool_output(tool_result, content.id)
-                                claude_message["content"].append(result_block)
-                                tool_results.append(result_block)
-                            except Exception as e:
-                                logging.error(f"Tool processing failed: {str(e)}")
-                                error_block = {
-                                    "type": "tool_result",
-                                    "tool_use_id": content.id,
-                                    "content": f"Tool execution failed: {str(e)}",
-                                    "is_error": True
-                                }
-                                claude_message["content"].append(error_block)
-                                tool_results.append(error_block)
-                    except Exception as e:
-                        logging.error(f"Failed to process content block: {str(e)}")
-                        continue
+                    if content.type == "text":
+                        claude_message["content"].append({
+                            "type": "text",
+                            "text": content.text
+                        })
+                    elif content.type == "tool_use":
+                        claude_message["content"].append({
+                            "type": "tool_use",
+                            "id": content.id,
+                            "name": content.name,
+                            "input": content.input
+                        })
+                        
+                        # Execute tool and get result
+                        tool_result_message, should_continue = self._handle_tool_execution(
+                            content, messages, render_callback
+                        )
+                        continue_loop = continue_loop or should_continue
                 
+                # Add Claude's message to history
                 messages.append(claude_message)
-                
-                # Call render callback if provided
                 if render_callback:
-                    try:
-                        render_callback(claude_message)
-                    except Exception as e:
-                        logging.error(f"Render callback failed: {str(e)}")
+                    render_callback(claude_message)
                 
-                # If no tools were used, we're done
-                if not tool_results:
+                # If no tool was used or tool execution failed, return messages
+                if not tool_result_message:
                     return messages
-                    
-                # Add tool results and continue loop
-                tool_message = {
-                    "role": Sender.USER,
-                    "content": tool_results
-                }
-                messages.append(tool_message)
+                
+                # Add tool result to history
+                messages.append(tool_result_message)
+                if render_callback:
+                    render_callback(tool_result_message)
+                
+                # Continue loop if needed for additional tool actions
+                if not continue_loop:
+                    return messages
                 
             except Exception as e:
                 logging.error(f"Failed to get response: {str(e)}")
-                raise Exception(f"Failed to get response: {str(e)}")
-        
-
-    def __del__(self):
-        """Cleanup browser resources"""
+                # Clean up browser resources on error
+                self.browser_manager.cleanup()
+                raise
+    
+    def __enter__(self):
+        """Context manager entry."""
+        return self
+    
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        """Context manager exit with cleanup."""
         try:
-            if self.browser:
-                self.browser.close()
-            if self.playwright:
-                self.playwright.stop()
+            # Clean up browser resources
+            self.browser_manager.cleanup()
         except Exception as e:
-            logging.error(f"Error during cleanup: {str(e)}") 
+            logging.error(f"Error during cleanup: {str(e)}")
+        messages = conversation_history if conversation_history else []
+        
+        while True:
+            try:
+                response = self.claude_manager.call_claude(
+                    conversation_history=messages,
+                    only_n_most_recent_images=self.only_n_most_recent_images,
+                    tool_collection=self.tool_collection
+                )
+                
+                claude_message = {"role": Sender.ASSISSTANT, "content": []}
+                tool_result_message = None
+                
+                for content in response.content:
+                    if content.type == "text":
+                        claude_message["content"].append({
+                            "type": "text",
+                            "text": content.text
+                        })
+                    elif content.type == "tool_use":
+                        tool_block = {
+                            "type": "tool_use",
+                            "id": content.id,
+                            "name": content.name,
+                            "input": content.input
+                        }
+                        claude_message["content"].append(tool_block)
+                        
+                        tool_result_message = {"role": Sender.USER, "content": []}
+                        try:
+                            tool_result = self.tool_collection.run(
+                                name=content.name,
+                                tool_input=content.input
+                            )
+                            result_block = self.tool_collection.process_tool_output(
+                                tool_result,
+                                content.id
+                            )
+                            tool_result_message["content"].append(result_block)
+                        except Exception as e:
+                            error_block = {
+                                "type": "tool_result",
+                                "tool_use_id": content.id,
+                                "content": f"Tool execution failed: {str(e)}",
+                                "is_error": True
+                            }
+                            tool_result_message["content"].append(error_block)
+                
+                messages.append(claude_message)
+                if render_callback:
+                    render_callback(claude_message)
+                
+                if not tool_result_message:
+                    return messages
+                    
+                messages.append(tool_result_message)
+                if render_callback:
+                    render_callback(tool_result_message)
+                
+                print("claude_message", claude_message)
+                
+            except Exception as e:
+                logging.error(f"Failed to get response: {str(e)}")
+                raise

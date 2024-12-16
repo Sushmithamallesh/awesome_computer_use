@@ -2,7 +2,6 @@ from anthropic import Anthropic
 from typing import Dict, Any
 import os
 from datetime import datetime
-from utils.utils import take_screenshot
 from anthropic.types.beta import (
     BetaContentBlockParam,
     BetaTextBlockParam,
@@ -13,6 +12,14 @@ from enum import StrEnum
 import time
 from typing import List
 from tools.collection import ToolCollection
+from anthropic import (
+    Anthropic,
+    AnthropicBedrock,
+    AnthropicVertex,
+    APIError,
+    APIResponseValidationError,
+    APIStatusError,
+)
 COMPUTER_USE_BETA_FLAG = "computer-use-2024-10-22"
 
 # This system prompt is optimized for the Docker environment in this repository and

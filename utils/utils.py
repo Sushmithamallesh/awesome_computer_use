@@ -1,24 +1,27 @@
 import pyautogui
 import os
 from datetime import datetime
-
-def take_screenshot():
+from playwright.sync_api import Page
+import base64
+    
+def screenshot_helper(page: Page) -> str:
     """
-    Takes a screenshot of the current screen and saves it with a timestamp.
-    Returns the path to the saved screenshot.
+    Take a screenshot and return it as a base64 string.
+    
+    Args:
+        page: Playwright Page object
+    
+    Returns:
+        str: Base64 encoded screenshot
     """
-    # Create screenshots directory if it doesn't exist
-    screenshots_dir = "screenshots"
-    if not os.path.exists(screenshots_dir):
-        os.makedirs(screenshots_dir)
-    
-    # Generate filename with timestamp
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    filename = f"screenshot_{timestamp}.png"
-    filepath = os.path.join(screenshots_dir, filename)
-    
-    # Take and save screenshot
-    screenshot = pyautogui.screenshot()
-    screenshot.save(filepath)
-    
-    return filepath
+    try:
+        # Take screenshot as bytes with png format
+        screenshot_bytes = page.screenshot(type="png")
+        # Convert bytes to base64 string
+        base64_string = base64.b64encode(screenshot_bytes).decode('utf-8')
+        print("screnshot taken")
+        
+        return base64_string
+    except Exception as e:
+        print(f"Failed to take screenshot: {str(e)}")
+        raise
