@@ -7,6 +7,7 @@ Checklist:
 - [x] Get a single response from Claude
 - [x] Screenshot handling
 - [x] Give the tool to claude. Check if its working first. Send a screenshot tool check on helicone
+- [] add a non computer tool
 - [] Define basic computer tools now
 - [] Check how to set the pages width and height for the whole scaling coordinates thing
 - [] Check the body you are sending to Claude. Are you properly including the tool callls?

@@ -6,6 +6,7 @@ from tools.computer import ComputerTool
 from core.claude import ClaudeManager
 from core.sender import Sender
 from tools.collection import ToolCollection
+from tools.browsertools import BrowserTool
 
 class ChatLoop:
     def __init__(self):
@@ -26,7 +27,8 @@ class ChatLoop:
         
         # Initialize tools
         self.tool_collection = ToolCollection(
-            ComputerTool()
+            ComputerTool(),
+            BrowserTool()
         )
 
     def _initialize_browser(self):
