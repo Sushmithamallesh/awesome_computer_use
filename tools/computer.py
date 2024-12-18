@@ -177,7 +177,18 @@ class ComputerTool(BaseAnthropicTool):
         """Perform click and drag operation."""
         try:
             with self.browser_manager.get_page() as page:
-                start_pos = page.mouse.position
+                # Get current position using JavaScript
+                start_pos = page.evaluate("""
+                    () => {
+                        const e = document.elementFromPoint(0, 0);
+                        if (e) {
+                            const rect = e.getBoundingClientRect();
+                            return [rect.x, rect.y];
+                        }
+                        return [0, 0];
+                    }
+                """)
+                
                 page.mouse.down()
                 page.mouse.move(x, y)
                 page.mouse.up()
@@ -190,7 +201,6 @@ class ComputerTool(BaseAnthropicTool):
                 return ToolResult(output=result)
         except Exception as e:
             return ToolResult(error=f"Failed to drag: {str(e)}")
-
     def page_key(self, key: str, take_screenshot: bool = True) -> ToolResult:
         """Press a keyboard key."""
         try:
@@ -221,7 +231,17 @@ class ComputerTool(BaseAnthropicTool):
         """Perform various click actions."""
         try:
             with self.browser_manager.get_page() as page:
-                pos = page.mouse.position
+                # Get current position using JavaScript
+                pos = page.evaluate("""
+                    () => {
+                        const e = document.elementFromPoint(0, 0);
+                        if (e) {
+                            const rect = e.getBoundingClientRect();
+                            return [rect.x, rect.y];
+                        }
+                        return [0, 0];
+                    }
+                """)
                 
                 if action == Action.LEFT_CLICK:
                     page.mouse.click(pos[0], pos[1])
@@ -234,16 +254,25 @@ class ComputerTool(BaseAnthropicTool):
                 
                 if take_screenshot:
                     screenshot_base64 = screenshot_helper(page)
-                    return ToolResult(output=f"Performed {action} at {pos}", base64_image=screenshot_base64)
-                return ToolResult(output=f"Performed {action} at {pos}")
+                    return ToolResult(output=f"Performed {action} at coordinates ({pos[0]}, {pos[1]})", base64_image=screenshot_base64)
+                return ToolResult(output=f"Performed {action} at coordinates ({pos[0]}, {pos[1]})")
         except Exception as e:
             return ToolResult(error=f"Failed to perform {action}: {str(e)}")
-
+    
     def page_cursor_position(self) -> ToolResult:
         """Get current cursor position."""
         try:
             with self.browser_manager.get_page() as page:
-                pos = page.mouse.position
+                pos = page.evaluate("""
+                    () => {
+                        const e = document.elementFromPoint(0, 0);
+                        if (e) {
+                            const rect = e.getBoundingClientRect();
+                            return [rect.x, rect.y];
+                        }
+                        return [0, 0];
+                    }
+                """)
                 return ToolResult(output=f"Cursor position: x={pos[0]}, y={pos[1]}")
         except Exception as e:
             return ToolResult(error=f"Failed to get cursor position: {str(e)}")
